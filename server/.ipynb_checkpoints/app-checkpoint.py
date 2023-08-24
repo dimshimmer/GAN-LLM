@@ -12,11 +12,11 @@ init_from = 'resume' # either 'resume' (from an out_dir) or a gpt2 variant (e.g.
 out_dir = 'out' # ignored if init_from is not 'resume'
 num_samples = 1 # number of samples to draw
 max_new_tokens = 150 # number of tokens generated in each sample
-temperature = 1 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
-top_k = 1 # retain only the top_k most likely tokens, clamp others to have 0 probability
+temperature = 0.8 # 1.0 = no change, < 1.0 = less random, > 1.0 = more random, in predictions
+top_k = 10 # retain only the top_k most likely tokens, clamp others to have 0 probability
 seed = 1337
 device = 'cuda' # examples: 'cpu', 'cuda', 'cuda:0', 'cuda:1', etc.
-dtype = 'bfloat16' # 'float32' or 'bfloat16' or 'float16'
+dtype = 'float16' # 'float32' or 'bfloat16' or 'float16'
 compile = False # use PyTorch 2.0 to compile the model to be faster
 exec(open('configurator.py').read()) # overrides from command line or config file
 # -----------------------------------------------------------------------------
@@ -48,7 +48,7 @@ model_gpt.to('cuda:0')
 if compile:
     model_gpt = torch.compile(model_gpt) # requires PyTorch 2.0 (optional)
 
-print(f'finetuned gpt2-xl loaded on GPU 0')
+print(f'gpt2-xl loaded')
 
 checkpoint_finetune = torch.load('/home/featurize/work/gpts/mymodel/squad_gan_ckpt.pt') # !! checked: model's path
 model_finetune = GPTConfig(**checkpoint_finetune['model_args'])
@@ -63,7 +63,7 @@ model_finetune.eval()
 model_finetune.to('cuda:1')
 if compile:
     model_finetune = torch.compile(model_finetune) # requires PyTorch 2.0 (optional)
-print(f'gan finetuned gpt2 loaded on GPU 1')
+print(f'gpt2-finetuned loaded')
 
 enc = tiktoken.get_encoding("gpt2")
 encode = lambda s: enc.encode(s, allowed_special={"<|endoftext|>"})
@@ -85,13 +85,13 @@ def get_response(prompt, model):
                     cnt = 0
                     index = 0 
                     while cnt < 4:
-                        if tmp_res_gpt[index] == '.' or tmp_res_gpt[index] == '?' : cnt += 1
+                        if tmp_res_gpt[index] == '.': cnt += 1
 
                         index += 1
                         if index >= l:break
                     res_gpt = tmp_res_gpt[:index]
         print(f'gpt Ans:')
-        return res_gpt[len(prompt):]
+        return res_gpt
     else:
         with torch.no_grad():
             with ctx:
@@ -104,13 +104,13 @@ def get_response(prompt, model):
                     cnt = 0
                     index = 0 
                     while cnt < 4:
-                        if tmp_res_finetune[index] == '.' or tmp_res_finetune[index] == '?': cnt += 1
+                        if tmp_res_finetune[index] == '.': cnt += 1
 
                         index += 1
                         if index >= l:break
                     res_finetune = tmp_res_finetune[:index]        
         print(f'finetune Ans:')
-        return res_finetune[len(prompt):]
+        return res_finetune
 
 @app.route('/chat', methods=['POST', 'GET'])
 def chat():
